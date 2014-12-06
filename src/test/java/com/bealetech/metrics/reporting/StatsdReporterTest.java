@@ -390,13 +390,13 @@ public class StatsdReporterTest {
 
     public String[] expectedCounterResult(long count) {
         return new String[]{
-                String.format("prefix.test.counter.count:%d|g", count)
+                String.format("prefix.test.counter.count:%d|c", count)
         };
     }
 
     public String[] expectedCounterResultMinimizedWithTag(long count) {
         return new String[]{
-                String.format("prefix.test.counter.count:%d|g|#%s", count, TAG)
+                String.format("prefix.test.counter.count:%d|c|#%s", count, TAG)
         };
     }
 

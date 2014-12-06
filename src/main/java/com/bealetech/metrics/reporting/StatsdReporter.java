@@ -22,6 +22,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.SortedMap;
@@ -200,6 +201,7 @@ public class StatsdReporter extends ScheduledReporter {
     protected ByteArrayOutputStream outputData;
 
     private boolean prependNewline = false;
+    private Map<String, Long> previousCounters = new HashMap<String, Long>(); // counters from the previous flush
 
     private StatsdReporter(MetricRegistry registry, UDPSocketProvider socketProvider, String prefix, String appendTag, Locale locale, TimeUnit rateUnit, TimeUnit durationUnit, Clock clock, MetricFilter filter, boolean minimizeMetrics) {
         super(registry, "statsd-reporter", filter, rateUnit, durationUnit);
@@ -300,7 +302,14 @@ public class StatsdReporter extends ScheduledReporter {
     }
 
     public void processCounter(String name, Counter counter) throws Exception {
-        sendInt(name + ".count", StatType.GAUGE, counter.getCount());
+        long currCount = counter.getCount(); // freeze
+        long delta = currCount;
+        if (previousCounters.containsKey(name)) {
+            long prev = previousCounters.get(name);
+            delta = currCount - prev;
+        }
+        sendInt(name + ".count", StatType.COUNTER, delta);
+        previousCounters.put(name, currCount);
     }
 
     public void processHistogram(String name, Histogram histogram) throws Exception {
@@ -396,10 +405,11 @@ public class StatsdReporter extends ScheduledReporter {
 
             if (outputData.size() > MAX_UDPDATAGRAM_LENGTH) {
                 // Need to send our UDP packet now before it gets too big.
+                LOG.warn("Payload exceeds {} bytes. Statsd daemon may not accept!!!", MAX_UDPDATAGRAM_LENGTH);
                 sendDatagram();
             }
         } catch (IOException e) {
-            LOG.error("Error sending to Graphite:", e);
+            LOG.error("Error sending to Statsd:", e);
         }
     }
 
